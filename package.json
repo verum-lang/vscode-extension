@@ -2,7 +2,7 @@
   "name": "verum-language",
   "displayName": "Verum Language Support",
   "description": "Language support for Verum with refinement type validation, CBGR profiling, and LSP integration",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "publisher": "MaxSereda",
   "license": "MIT",
   "repository": {
@@ -28,7 +28,8 @@
   ],
   "activationEvents": [
     "onLanguage:verum",
-    "onCommand:verum.runFile",
+    "workspaceContains:**/Verum.toml",
+    "workspaceContains:**/*.vr",
     "onDebug"
   ],
   "main": "./out/extension.js",
@@ -401,30 +402,6 @@
         }
       }
     ],
-    "problemMatchers": [
-      {
-        "name": "verum",
-        "owner": "verum",
-        "fileLocation": [
-          "relative",
-          "${workspaceFolder}"
-        ],
-        "pattern": [
-          {
-            "regexp": "^(error|warning|info)\\[([A-Z]\\d+)\\]:\\s+(.+)$",
-            "severity": 1,
-            "code": 2,
-            "message": 3
-          },
-          {
-            "regexp": "^\\s+-->\\s+(.+):(\\d+):(\\d+)$",
-            "file": 1,
-            "line": 2,
-            "column": 3
-          }
-        ]
-      }
-    ],
     "configuration": {
       "type": "object",
       "title": "Verum Language Server",
@@ -474,12 +451,12 @@
         "verum.lsp.smtSolver": {
           "type": "string",
           "enum": [
+            "auto",
             "z3",
-            "cvc5",
-            "auto"
+            "cvc5"
           ],
-          "default": "z3",
-          "description": "SMT solver to use for refinement validation"
+          "default": "auto",
+          "description": "SMT solver backend. `auto` lets the compiler's capability router pick (Z3 for LIA/bitvectors/arrays, CVC5 for strings/nonlinear/SyGuS). Only set explicitly for debugging."
         },
         "verum.lsp.smtTimeout": {
           "type": "number",

@@ -5,6 +5,93 @@ All notable changes to the Verum VS Code extension will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-04-17
+
+### Grammar audit — alignment with `grammar/verum.ebnf`
+
+Full rewrite of the TextMate grammar, snippets, and language configuration
+against the current EBNF spec. The prior packaging predated the unified
+`type X is ...` syntax, the `mount` module statement, raw multiline strings
+`"""..."""`, and the full set of proof / async keywords.
+
+### Added
+
+- **Keywords**: `throws`, `errdefer`, `nursery`, `select`, `defer`, `pure`,
+  `provide`, `finally`, `recover`, `mount`, `protocol`, `implement`,
+  `forall`, `exists`, `tactic`, and all proof combinators
+  (`calc`, `have`, `show`, `suffices`, `obtain`, `qed`,
+  `repeat`, `first`, `all_goals`, `focus`).
+- **Strings**: triple-quoted raw multiline `"""..."""`, byte strings
+  `b"..."`, full-featured interpolated strings `f"..."` / `f"""..."""`
+  with `{expr:format}` spec highlighting, tagged interpolation
+  `${expr}` inside tagged literals.
+- **Tagged literals**: `json`, `json5`, `yaml`, `toml`, `xml`, `html`,
+  `csv`, `sql`, `rx`, `re`, `regex`, `gql`, `graphql`, `cypher`,
+  `sparql`, `url`, `uri`, `email`, `d`, `dur`, `date`, `sh`, `css`,
+  `lua`, `asm`, `ip`, `cidr`, `b64`, `hex`, plus arbitrary user tags.
+- **Attributes**: `@derive(...)` highlights constituent items;
+  `@verify(strategy)` highlights all 9 semantic strategies
+  (`runtime` / `static` / `formal` / `proof` / `fast` /
+  `thorough` / `reliable` / `certified` / `synthesize`); generic
+  `@name(args)` form with parameter-name / value / keyword
+  scopes.
+- **Snippets**: full set covering contracts, refinements, CBGR tier
+  promotion, structured concurrency (`nursery` / `select`),
+  `errdefer`, all 9 `@verify` strategies, all tagged-literal
+  forms, proof declarations and tactics.
+- **Refinement highlighting**: brace-delimited refinement predicates
+  with explicit `self` subject and boolean-operator scoping.
+- **Folding**: recognises `fn` / `type` / `protocol` / `module` /
+  `implement` / `context` / `theorem` / `lemma` / `proof` /
+  `tactic` / `nursery` / `select`.
+
+### Changed
+
+- **`mount` replaces `use` / `import`** — snippets and syntax now use
+  the grammar's `mount path.to.module;` form (plus `.{A, B}` /
+  `.* ` / `as alias` variants).
+- **`implement` replaces `impl`** — in folding, indentation, and
+  snippet prefixes (`impl`, `impl-generic`, `impl-where`).
+- **`smtSolver` default** changed from `z3` to `auto` to match the
+  language-level capability router (Z3 for LIA/bitvectors/arrays,
+  CVC5 for strings/nonlinear/SyGuS, orchestrated by the compiler).
+- **`assert_eq!` / `assert_ne!`** snippets dropped the Rust-style `!`
+  — Verum has no macro-bang syntax, these are plain built-ins.
+- **`Heap::new(x)` / `List::new()`** → `Heap(x)` / `List.new()`
+  (Verum uses `.` as path separator; `Heap` is a constructor, not
+  a type with `new`).
+
+### Removed
+
+- Rust-style keywords **`struct`**, **`enum`**, **`trait`**,
+  **`newtype`**, **`ref`**, **`move`**, **`drop`**, **`cofix`**,
+  **`view`**, **`private`**, **`priv`**, **`and`** / **`or`** /
+  **`not`** (Verum uses `&&` / `||` / `!`), **`use`** / **`import`**
+  (see `mount`).
+- **`r#"..."#`** raw string syntax — the spec replaced this with
+  triple-quoted `"""..."""`, which is always raw and multiline.
+- **`#[...]`** hash attributes — Verum uses `@` exclusively.
+- **`name!`** macro-invocation highlighting — Verum has no `!`
+  macros.
+- **Rust standard-library types** `Box`, `Rc`, `Arc` from the
+  primitive-type list — forbidden in Verum per spec
+  ("Semantic Honesty" — use `Heap`, `Shared`).
+- Duplicate `problemMatchers` block in `package.json`.
+
+### Fixed
+
+- Refinement predicate variable corrected from `it` (not in EBNF)
+  to `self` (spec-conformant).
+- Hoist `@derive` / `@verify` / `@attribute-with-args` matchers so
+  they anchor before generic attribute fallback — gives
+  per-argument highlighting.
+- Language configuration no longer auto-pairs `<` / `>` (avoided
+  spurious closings on comparison operators); generics still
+  surround-pair via `surroundingPairs`.
+- Extension now activates on `workspaceContains:**/Verum.toml` so
+  features light up as soon as a Verum project is opened, not only
+  on the first `.vr` open.
+
 ## [1.0.0] - 2026-03-15
 
 ### Added

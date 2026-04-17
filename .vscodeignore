@@ -9,5 +9,14 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 !out/**/*.js
+out/test/**/*.js
 node_modules/**
 **/.DS_Store
+eslint.config.mjs
+esbuild.js
+verify.sh
+package-lock.json
+IMPLEMENTATION.md
+DASHBOARD_README.md
+QUICKSTART.md
+**/*.vsix

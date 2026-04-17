@@ -6,17 +6,14 @@
   "brackets": [
     ["{", "}"],
     ["[", "]"],
-    ["(", ")"],
-    ["<", ">"]
+    ["(", ")"]
   ],
   "autoClosingPairs": [
     { "open": "{", "close": "}", "notIn": ["string", "comment"] },
     { "open": "[", "close": "]", "notIn": ["string", "comment"] },
     { "open": "(", "close": ")", "notIn": ["string", "comment"] },
-    { "open": "<", "close": ">", "notIn": ["string", "comment"] },
     { "open": "\"", "close": "\"", "notIn": ["string"] },
     { "open": "'", "close": "'", "notIn": ["string", "comment"] },
-    { "open": "`", "close": "`", "notIn": ["string", "comment"] },
     { "open": "/*", "close": " */", "notIn": ["string"] },
     { "open": "/**", "close": " */", "notIn": ["string"] }
   ],
@@ -26,8 +23,7 @@
     ["(", ")"],
     ["<", ">"],
     ["\"", "\""],
-    ["'", "'"],
-    ["`", "`"]
+    ["'", "'"]
   ],
   "colorizedBracketPairs": [
     ["{", "}"],
@@ -36,7 +32,7 @@
   ],
   "folding": {
     "markers": {
-      "start": "^\\s*//\\s*#?region\\b|^\\s*(fn|type|protocol|struct|enum|module|impl|context|theorem|lemma|proof|test)\\b",
+      "start": "^\\s*//\\s*#?region\\b|^\\s*(?:public\\s+|internal\\s+|protected\\s+)?(?:fn|type|protocol|module|implement|context|theorem|lemma|proof|tactic|nursery|select)\\b",
       "end": "^\\s*//\\s*#?endregion\\b"
     },
     "offSide": false
@@ -93,14 +89,10 @@
     {
       "beforeText": "^.*\\([^)\"'`]*$",
       "action": { "indent": "indent" }
-    },
-    {
-      "beforeText": "\\s*(fn|type|protocol|struct|enum|module|impl|context|match|if|else|for|while|loop|try)\\b.*",
-      "action": { "indent": "none" }
     }
   ],
   "indentationRules": {
-    "increaseIndentPattern": "^((?!\\/\\/).)*(\\{[^}\"'`]*|\\([^)\"'`]*|\\[[^\\]\"'`]*)$|^\\s*(fn|type|protocol|struct|enum|module|impl|context|match|if|else|for|while|loop|try|theorem|lemma|proof)\\b.*->?\\s*$",
+    "increaseIndentPattern": "^((?!\\/\\/).)*(\\{[^}\"'`]*|\\([^)\"'`]*|\\[[^\\]\"'`]*)$",
     "decreaseIndentPattern": "^((?!.*?\\/\\*).*\\*/)?\\s*[\\}\\]\\)].*$"
   },
   "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",

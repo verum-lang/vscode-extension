@@ -2,89 +2,41 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "Verum",
   "scopeName": "source.verum",
+  "fileTypes": ["vr"],
   "patterns": [
     { "include": "#comments" },
-    { "include": "#module-declaration" },
+    { "include": "#attributes" },
+    { "include": "#doc-comments" },
+    { "include": "#mount-statement" },
+    { "include": "#module-statement" },
+    { "include": "#type-def-head" },
+    { "include": "#impl-head" },
+    { "include": "#protocol-head" },
+    { "include": "#context-head" },
     { "include": "#tagged-literals" },
     { "include": "#interpolated-strings" },
+    { "include": "#raw-multiline-strings" },
+    { "include": "#byte-strings" },
     { "include": "#strings" },
+    { "include": "#chars" },
     { "include": "#keywords" },
-    { "include": "#generics" },
     { "include": "#types" },
     { "include": "#refinements" },
     { "include": "#numbers" },
     { "include": "#operators" },
     { "include": "#functions" },
-    { "include": "#attributes" },
     { "include": "#punctuation" }
   ],
   "repository": {
-    "module-declaration": {
-      "patterns": [
-        {
-          "comment": "Module declaration: [visibility] module <name>",
-          "match": "\\b(pub|public|priv|private|internal)?\\s*(module)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*(;)",
-          "captures": {
-            "1": { "name": "storage.modifier.visibility.verum" },
-            "2": { "name": "keyword.declaration.verum" },
-            "3": { "name": "entity.name.namespace.verum" },
-            "4": { "name": "source.verum" }
-          }
-        },
-        {
-          "comment": "Import declaration: import <path>",
-          "match": "\\b(import)\\s+([a-zA-Z_][a-zA-Z0-9_]*(?:::[a-zA-Z_][a-zA-Z0-9_]*)*)\\s*(;)?",
-          "captures": {
-            "1": { "name": "keyword.declaration.verum" },
-            "2": { "name": "entity.name.namespace.verum" },
-            "3": { "name": "source.verum" }
-          }
-        },
-        {
-          "comment": "Use declaration: use <path>",
-          "match": "\\b(use)\\s+([a-zA-Z_][a-zA-Z0-9_]*(?:::[a-zA-Z_][a-zA-Z0-9_]*)*)\\s*(;)?",
-          "captures": {
-            "1": { "name": "keyword.declaration.verum" },
-            "2": { "name": "entity.name.namespace.verum" },
-            "3": { "name": "source.verum" }
-          }
-        }
-      ]
-    },
-    "generics": {
-      "patterns": [
-        {
-          "comment": "Generic type parameters: Type<T, U>",
-          "begin": "(<)(?=[A-Za-z_'&])",
-          "end": "(>)",
-          "beginCaptures": {
-            "1": { "name": "source.verum" }
-          },
-          "endCaptures": {
-            "1": { "name": "source.verum" }
-          },
-          "patterns": [
-            { "include": "#generics" },
-            { "include": "#types" },
-            { "include": "#keywords" },
-            {
-              "name": "source.verum",
-              "match": ","
-            },
-            {
-              "comment": "Lifetime parameter",
-              "name": "storage.modifier.lifetime.verum",
-              "match": "'[a-z_][a-zA-Z0-9_]*"
-            }
-          ]
-        }
-      ]
-    },
     "comments": {
       "patterns": [
         {
           "name": "comment.line.documentation.verum",
           "match": "///.*$"
+        },
+        {
+          "name": "comment.line.inner-doc.verum",
+          "match": "//!.*$"
         },
         {
           "name": "comment.line.double-slash.verum",
@@ -93,7 +45,13 @@
         {
           "name": "comment.block.documentation.verum",
           "begin": "/\\*\\*",
-          "end": "\\*/"
+          "end": "\\*/",
+          "patterns": [
+            {
+              "match": "\\*\\*/",
+              "name": "comment.block.verum"
+            }
+          ]
         },
         {
           "name": "comment.block.verum",
@@ -102,72 +60,273 @@
         }
       ]
     },
+    "doc-comments": {
+      "patterns": [
+        {
+          "name": "comment.line.spec-reference.verum",
+          "match": "//\\s*(SAFETY|Spec|NOTE|FIXME|TODO|XXX|HACK|WARNING):.*$"
+        }
+      ]
+    },
+    "attributes": {
+      "patterns": [
+        {
+          "comment": "Derive attribute: @derive(Copy, Clone, ...)",
+          "begin": "(@derive)\\s*(\\()",
+          "end": "(\\))",
+          "beginCaptures": {
+            "1": { "name": "entity.other.attribute-name.verum" },
+            "2": { "name": "punctuation.section.attribute.begin.verum" }
+          },
+          "endCaptures": {
+            "1": { "name": "punctuation.section.attribute.end.verum" }
+          },
+          "patterns": [
+            {
+              "name": "support.class.derive.verum",
+              "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
+            },
+            { "match": ",", "name": "punctuation.separator.verum" }
+          ]
+        },
+        {
+          "comment": "Verify attribute: @verify(strategy)",
+          "begin": "(@verify)\\s*(\\()",
+          "end": "(\\))",
+          "beginCaptures": {
+            "1": { "name": "entity.other.attribute-name.verum" },
+            "2": { "name": "punctuation.section.attribute.begin.verum" }
+          },
+          "endCaptures": {
+            "1": { "name": "punctuation.section.attribute.end.verum" }
+          },
+          "patterns": [
+            {
+              "name": "constant.language.verify-strategy.verum",
+              "match": "\\b(runtime|static|formal|proof|fast|thorough|reliable|certified|synthesize)\\b"
+            },
+            {
+              "name": "variable.parameter.verify.verum",
+              "match": "\\b(timeout_ms|strategy|depth|solver)\\b"
+            },
+            {
+              "match": "[:=,]",
+              "name": "punctuation.separator.verum"
+            },
+            { "include": "#numbers" },
+            { "include": "#strings" }
+          ]
+        },
+        {
+          "comment": "Generic attribute with arguments: @name(args)",
+          "begin": "(@)([A-Za-z_][A-Za-z0-9_]*)\\s*(\\()",
+          "end": "(\\))",
+          "beginCaptures": {
+            "1": { "name": "punctuation.definition.attribute.verum" },
+            "2": { "name": "entity.other.attribute-name.verum" },
+            "3": { "name": "punctuation.section.attribute.begin.verum" }
+          },
+          "endCaptures": {
+            "1": { "name": "punctuation.section.attribute.end.verum" }
+          },
+          "patterns": [
+            { "include": "#strings" },
+            { "include": "#raw-multiline-strings" },
+            { "include": "#numbers" },
+            { "include": "#keywords" },
+            {
+              "name": "variable.parameter.attribute.verum",
+              "match": "\\b[a-z_][a-zA-Z0-9_]*(?=\\s*[:=])"
+            },
+            {
+              "name": "entity.name.type.verum",
+              "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
+            },
+            {
+              "match": "[:=,]",
+              "name": "punctuation.separator.verum"
+            }
+          ]
+        },
+        {
+          "comment": "Plain attribute: @name",
+          "match": "(@)([A-Za-z_][A-Za-z0-9_]*)\\b",
+          "captures": {
+            "1": { "name": "punctuation.definition.attribute.verum" },
+            "2": { "name": "entity.other.attribute-name.verum" }
+          }
+        }
+      ]
+    },
+    "mount-statement": {
+      "patterns": [
+        {
+          "comment": "mount path.to.module.{A, B as C}",
+          "begin": "\\b(mount)\\s+",
+          "end": ";",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.import.verum" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.terminator.verum" }
+          },
+          "patterns": [
+            {
+              "name": "keyword.operator.rename.verum",
+              "match": "\\b(as)\\b"
+            },
+            {
+              "name": "entity.name.namespace.verum",
+              "match": "\\b[a-z_][a-zA-Z0-9_]*\\b(?!\\s*\\()"
+            },
+            {
+              "name": "entity.name.type.verum",
+              "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
+            },
+            { "match": "[.{},*]", "name": "punctuation.verum" }
+          ]
+        }
+      ]
+    },
+    "module-statement": {
+      "patterns": [
+        {
+          "comment": "module a.b.c { ... } or module path;",
+          "match": "\\b(public|internal|protected)?\\s*(module)\\s+([a-z_][a-zA-Z0-9_.]*)",
+          "captures": {
+            "1": { "name": "storage.modifier.visibility.verum" },
+            "2": { "name": "keyword.declaration.module.verum" },
+            "3": { "name": "entity.name.namespace.verum" }
+          }
+        }
+      ]
+    },
+    "type-def-head": {
+      "patterns": [
+        {
+          "comment": "type Name [is] ...",
+          "match": "\\b(public|internal|protected)?\\s*(type)\\s+(affine\\s+)?([A-Z][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.modifier.visibility.verum" },
+            "2": { "name": "keyword.declaration.type.verum" },
+            "3": { "name": "storage.modifier.type.verum" },
+            "4": { "name": "entity.name.type.definition.verum" }
+          }
+        }
+      ]
+    },
+    "impl-head": {
+      "patterns": [
+        {
+          "comment": "implement [Proto] for Type",
+          "match": "\\b(unsafe\\s+)?(implement)\\b",
+          "captures": {
+            "1": { "name": "storage.modifier.unsafe.verum" },
+            "2": { "name": "keyword.declaration.impl.verum" }
+          }
+        }
+      ]
+    },
+    "protocol-head": {
+      "patterns": [
+        {
+          "comment": "protocol keyword in `is protocol { ... }` or `context protocol Name`",
+          "match": "\\b(protocol)\\b",
+          "captures": {
+            "1": { "name": "keyword.declaration.protocol.verum" }
+          }
+        }
+      ]
+    },
+    "context-head": {
+      "patterns": [
+        {
+          "comment": "context [async] Name or async context Name",
+          "match": "\\b(context)\\s+(async\\s+)?([A-Z][A-Za-z0-9_]*)?",
+          "captures": {
+            "1": { "name": "keyword.declaration.context.verum" },
+            "2": { "name": "keyword.control.async.verum" },
+            "3": { "name": "entity.name.type.context.verum" }
+          }
+        }
+      ]
+    },
     "keywords": {
       "patterns": [
         {
-          "comment": "Control flow keywords",
-          "name": "keyword.control.verum",
-          "match": "\\b(if|else|match|for|while|loop|break|continue|return|yield)\\b"
+          "comment": "Reserved keywords (spec §1.4)",
+          "name": "keyword.other.reserved.verum",
+          "match": "\\b(let|fn|is)\\b"
         },
         {
-          "comment": "Declaration keywords",
+          "comment": "Primary keywords",
           "name": "keyword.declaration.verum",
-          "match": "\\b(fn|let|mut|const|static|type|struct|enum|protocol|trait|implement|context|provide|module|import|use)\\b"
+          "match": "\\b(type|where|using)\\b"
         },
         {
-          "comment": "Async/concurrency keywords",
+          "comment": "Control flow",
+          "name": "keyword.control.verum",
+          "match": "\\b(if|else|match|return|for|while|loop|break|continue)\\b"
+        },
+        {
+          "comment": "Async / concurrency",
           "name": "keyword.control.async.verum",
-          "match": "\\b(async|await|spawn|stream)\\b"
+          "match": "\\b(async|await|spawn|defer|errdefer|yield|throws|select|nursery)\\b"
         },
         {
-          "comment": "Memory/reference keywords",
-          "name": "keyword.other.memory.verum",
-          "match": "\\b(ref|move|defer|drop|meta|cofix)\\b"
-        },
-        {
-          "comment": "Visibility modifiers",
-          "name": "storage.modifier.visibility.verum",
-          "match": "\\b(pub|public|priv|private|internal|protected)\\b"
-        },
-        {
-          "comment": "Reference tier modifiers",
-          "name": "storage.modifier.reference.verum",
-          "match": "\\b(checked|unsafe)\\b"
-        },
-        {
-          "comment": "Type system modifiers",
-          "name": "storage.modifier.type.verum",
-          "match": "\\b(tensor|affine|linear|newtype)\\b"
-        },
-        {
-          "comment": "Other keywords",
-          "name": "keyword.other.verum",
-          "match": "\\b(using|where|is|as|in|extends|self|Self|super|crate)\\b"
-        },
-        {
-          "comment": "Logical operators",
-          "name": "keyword.operator.logical.verum",
-          "match": "\\b(and|or|not)\\b"
-        },
-        {
-          "comment": "Error handling keywords",
+          "comment": "Error-flow",
           "name": "keyword.control.error.verum",
           "match": "\\b(try|recover|finally|ffi)\\b"
         },
         {
-          "comment": "Verification contract keywords",
-          "name": "keyword.control.verification.verum",
-          "match": "\\b(requires|ensures|invariant|decreases|result|view)\\b"
+          "comment": "Modifiers",
+          "name": "storage.modifier.verum",
+          "match": "\\b(pub|mut|const|unsafe|pure)\\b"
         },
         {
-          "comment": "Formal proof declaration keywords",
+          "comment": "Visibility",
+          "name": "storage.modifier.visibility.verum",
+          "match": "\\b(public|internal|protected)\\b"
+        },
+        {
+          "comment": "Reference tier",
+          "name": "storage.modifier.reference.verum",
+          "match": "(?<=&)(checked|unsafe)\\b"
+        },
+        {
+          "comment": "Type modifiers",
+          "name": "storage.modifier.type.verum",
+          "match": "\\b(affine|linear|tensor|stream)\\b"
+        },
+        {
+          "comment": "Module keywords",
+          "name": "keyword.declaration.module.verum",
+          "match": "\\b(module|mount|implement|context|protocol|extends|provide)\\b"
+        },
+        {
+          "comment": "Additional keywords",
+          "name": "keyword.other.verum",
+          "match": "\\b(self|Self|super|crate|static|meta|some|result)\\b"
+        },
+        {
+          "comment": "Verification contracts",
+          "name": "keyword.other.contract.verum",
+          "match": "\\b(requires|ensures|invariant|decreases)\\b"
+        },
+        {
+          "comment": "Proof declarations",
           "name": "keyword.declaration.proof.verum",
-          "match": "\\b(theorem|axiom|lemma|corollary|proof)\\b"
+          "match": "\\b(theorem|lemma|axiom|corollary|proof|tactic)\\b"
         },
         {
-          "comment": "Proof tactics keywords",
-          "name": "keyword.control.tactic.verum",
-          "match": "\\b(calc|have|show|suffices|obtain|by|induction|cases|contradiction|trivial|assumption|simp|ring|field|omega|auto|blast|smt|qed)\\b"
+          "comment": "Proof tactics and combinators",
+          "name": "keyword.other.tactic.verum",
+          "match": "\\b(calc|have|show|suffices|obtain|by|qed|induction|cases|contradiction|rewrite|unfold|apply|exact|intro|intros|trivial|assumption|simp|ring|field|omega|auto|blast|smt|cubical|category_simp|category_law|descent_check|repeat|first|all_goals|focus)\\b"
+        },
+        {
+          "comment": "Quantifiers",
+          "name": "keyword.other.quantifier.verum",
+          "match": "\\b(forall|exists)\\b"
         },
         {
           "comment": "Boolean literals",
@@ -175,48 +334,48 @@
           "match": "\\b(true|false)\\b"
         },
         {
-          "comment": "Null/none literals",
-          "name": "constant.language.null.verum",
-          "match": "\\b(None)\\b"
+          "comment": "Option/Result constants",
+          "name": "constant.language.option.verum",
+          "match": "\\b(None|Some|Ok|Err)\\b"
         }
       ]
     },
     "types": {
       "patterns": [
         {
-          "comment": "Primitive types",
+          "comment": "Primitive numeric types",
           "name": "support.type.primitive.verum",
-          "match": "\\b(Int|Float|Bool|Text|Char|Unit|i8|i16|i32|i64|i128|isize|u8|u16|u32|u64|u128|usize|f32|f64)\\b"
+          "match": "\\b(Int|UInt|Float|Bool|Text|Char|Byte|Unit|Never|i8|i16|i32|i64|i128|isize|u8|u16|u32|u64|u128|usize|f32|f64)\\b"
         },
         {
           "comment": "Collection types",
           "name": "support.type.collection.verum",
-          "match": "\\b(List|Map|Set|Array|Tuple|Deque|PriorityQueue|LinkedList|RingBuffer|Tensor)\\b"
+          "match": "\\b(List|Map|Set|Tuple|Deque|Queue|Stack|PriorityQueue|LinkedList|RingBuffer)\\b"
         },
         {
-          "comment": "Option/Result types",
+          "comment": "Option/Result/error types",
           "name": "support.type.option.verum",
-          "match": "\\b(Maybe|Result|Some|Ok|Err)\\b"
+          "match": "\\b(Maybe|Result|Either)\\b"
         },
         {
-          "comment": "Memory management types",
+          "comment": "Memory management types (CBGR-aware)",
           "name": "support.type.memory.verum",
-          "match": "\\b(Heap|Shared|Unique|Weak|Box|Rc|Arc)\\b"
+          "match": "\\b(Heap|Shared|Unique|Weak)\\b"
         },
         {
           "comment": "Concurrency types",
           "name": "support.type.concurrency.verum",
-          "match": "\\b(Mutex|RwLock|Semaphore|Channel|Future|Promise|Stream|CancellationToken)\\b"
+          "match": "\\b(Mutex|RwLock|Semaphore|Channel|Future|Promise|Stream|Task|CancellationToken|Nursery)\\b"
         },
         {
-          "comment": "Protocol/trait bounds",
-          "name": "support.type.protocol.verum",
-          "match": "\\b(dyn|impl)\\b"
+          "comment": "Tensor / numeric",
+          "name": "support.type.tensor.verum",
+          "match": "\\b(Tensor|Matrix|Vector)\\b"
         },
         {
-          "comment": "Type variable",
-          "name": "support.type.variable.verum",
-          "match": "\\b_\\b"
+          "comment": "Wildcard inference",
+          "name": "support.type.wildcard.verum",
+          "match": "(?<![A-Za-z0-9_])_(?![A-Za-z0-9_])"
         },
         {
           "comment": "User-defined type (PascalCase)",
@@ -228,28 +387,33 @@
     "refinements": {
       "patterns": [
         {
-          "comment": "Refinement type syntax: Type{constraint}",
+          "comment": "Refinement predicate: Type { self <op> ... }",
           "name": "meta.refinement.verum",
-          "begin": "(?<=[A-Za-z0-9_>])\\{",
+          "begin": "(?<=[A-Za-z0-9_>\\]\\)])\\s*\\{(?=\\s*(self|[a-zA-Z_].*:|[^}]*(self|&&|\\|\\||==|!=|<=|>=|<|>).*\\}))",
           "end": "\\}",
           "beginCaptures": {
-            "0": { "name": "source.verum" }
+            "0": { "name": "punctuation.section.refinement.begin.verum" }
           },
           "endCaptures": {
-            "0": { "name": "source.verum" }
+            "0": { "name": "punctuation.section.refinement.end.verum" }
           },
           "patterns": [
             {
-              "name": "variable.parameter.refinement.verum",
-              "match": "\\b(it|self)\\b"
+              "name": "variable.language.self.verum",
+              "match": "\\bself\\b"
             },
             {
-              "comment": "Operators inside refinements",
-              "name": "source.verum",
-              "match": "(==|!=|<=|>=|<|>|&&|\\|\\||!)"
+              "name": "keyword.operator.logical.verum",
+              "match": "(==|!=|<=|>=|<|>|&&|\\|\\||!|=>)"
             },
+            { "include": "#keywords" },
             { "include": "#numbers" },
-            { "include": "#functions" }
+            { "include": "#strings" },
+            { "include": "#functions" },
+            {
+              "name": "variable.other.refinement.verum",
+              "match": "\\b[a-z_][a-zA-Z0-9_]*\\b"
+            }
           ]
         }
       ]
@@ -257,97 +421,243 @@
     "tagged-literals": {
       "patterns": [
         {
-          "comment": "SQL tagged literal",
-          "name": "meta.embedded.sql.verum",
-          "begin": "\\bsql#?\"",
-          "end": "\"",
+          "comment": "SQL tagged literal (single line or raw multiline)",
+          "name": "string.tagged.sql.verum",
+          "contentName": "meta.embedded.block.sql",
+          "begin": "\\b(sql)(#)(\"\"\"|\")",
+          "end": "\\3",
           "beginCaptures": {
-            "0": { "name": "punctuation.definition.string.begin.verum" }
+            "1": { "name": "entity.name.tag.verum" },
+            "2": { "name": "punctuation.definition.tag.verum" },
+            "3": { "name": "punctuation.definition.string.begin.verum" }
           },
           "endCaptures": {
             "0": { "name": "punctuation.definition.string.end.verum" }
           },
           "patterns": [
-            {
-              "name": "variable.interpolation.verum",
-              "match": "\\{[^}]+\\}"
-            }
+            { "include": "#tagged-interpolation" }
           ]
         },
         {
           "comment": "Regex tagged literal",
-          "name": "string.regexp.verum",
-          "begin": "\\brx#\"",
-          "end": "\"",
+          "name": "string.tagged.regexp.verum",
+          "contentName": "meta.embedded.block.regex",
+          "begin": "\\b(rx|re|regex)(#)(\"\"\"|\")",
+          "end": "\\3",
           "beginCaptures": {
-            "0": { "name": "punctuation.definition.string.begin.verum" }
+            "1": { "name": "entity.name.tag.verum" },
+            "2": { "name": "punctuation.definition.tag.verum" },
+            "3": { "name": "punctuation.definition.string.begin.verum" }
           },
           "endCaptures": {
             "0": { "name": "punctuation.definition.string.end.verum" }
           }
         },
         {
-          "comment": "Date tagged literal",
-          "name": "string.quoted.date.verum",
-          "begin": "\\bd#\"",
-          "end": "\"",
+          "comment": "JSON / JSON5 tagged literal",
+          "name": "string.tagged.json.verum",
+          "contentName": "meta.embedded.block.json",
+          "begin": "\\b(json|json5|yaml|toml|xml|csv)(#)(\"\"\"|\")",
+          "end": "\\3",
           "beginCaptures": {
-            "0": { "name": "punctuation.definition.string.begin.verum" }
-          },
-          "endCaptures": {
-            "0": { "name": "punctuation.definition.string.end.verum" }
-          }
-        },
-        {
-          "comment": "Contract tagged literal",
-          "name": "meta.embedded.contract.verum",
-          "begin": "\\bcontract#\"",
-          "end": "\"",
-          "beginCaptures": {
-            "0": { "name": "punctuation.definition.string.begin.verum" }
+            "1": { "name": "entity.name.tag.verum" },
+            "2": { "name": "punctuation.definition.tag.verum" },
+            "3": { "name": "punctuation.definition.string.begin.verum" }
           },
           "endCaptures": {
             "0": { "name": "punctuation.definition.string.end.verum" }
           },
           "patterns": [
-            { "include": "#keywords" }
+            { "include": "#tagged-interpolation" }
           ]
         },
         {
           "comment": "HTML tagged literal",
-          "name": "meta.embedded.html.verum",
-          "begin": "\\bhtml\"",
-          "end": "\"",
+          "name": "string.tagged.html.verum",
+          "contentName": "meta.embedded.block.html",
+          "begin": "\\b(html)(#)(\"\"\"|\")",
+          "end": "\\3",
           "beginCaptures": {
-            "0": { "name": "punctuation.definition.string.begin.verum" }
+            "1": { "name": "entity.name.tag.verum" },
+            "2": { "name": "punctuation.definition.tag.verum" },
+            "3": { "name": "punctuation.definition.string.begin.verum" }
           },
           "endCaptures": {
             "0": { "name": "punctuation.definition.string.end.verum" }
           },
           "patterns": [
-            {
-              "name": "variable.interpolation.verum",
-              "match": "\\{[^}]+\\}"
-            }
+            { "include": "#tagged-interpolation" }
           ]
         },
         {
-          "comment": "Matrix/tensor literal",
-          "name": "meta.embedded.tensor.verum",
-          "begin": "\\b(mat|vec|tensor)#",
-          "end": "(?=[;,)]|\\s)",
+          "comment": "Shell / scripting tagged literals",
+          "name": "string.tagged.script.verum",
+          "begin": "\\b(sh|css|lua|asm)(#)(\"\"\"|\")",
+          "end": "\\3",
           "beginCaptures": {
-            "1": { "name": "keyword.other.tensor.verum" }
+            "1": { "name": "entity.name.tag.verum" },
+            "2": { "name": "punctuation.definition.tag.verum" },
+            "3": { "name": "punctuation.definition.string.begin.verum" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.verum" }
+          },
+          "patterns": [
+            { "include": "#tagged-interpolation" }
+          ]
+        },
+        {
+          "comment": "Query-language tagged literals",
+          "name": "string.tagged.query.verum",
+          "begin": "\\b(gql|graphql|cypher|sparql)(#)(\"\"\"|\")",
+          "end": "\\3",
+          "beginCaptures": {
+            "1": { "name": "entity.name.tag.verum" },
+            "2": { "name": "punctuation.definition.tag.verum" },
+            "3": { "name": "punctuation.definition.string.begin.verum" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.verum" }
           }
+        },
+        {
+          "comment": "Generic tagged literal (any identifier + # + string)",
+          "name": "string.tagged.other.verum",
+          "begin": "\\b([a-z_][a-zA-Z0-9_]*)(#)(\"\"\"|\")",
+          "end": "\\3",
+          "beginCaptures": {
+            "1": { "name": "entity.name.tag.verum" },
+            "2": { "name": "punctuation.definition.tag.verum" },
+            "3": { "name": "punctuation.definition.string.begin.verum" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.verum" }
+          },
+          "patterns": [
+            { "include": "#tagged-interpolation" }
+          ]
+        }
+      ]
+    },
+    "tagged-interpolation": {
+      "patterns": [
+        {
+          "name": "meta.interpolation.verum",
+          "begin": "\\$\\{",
+          "end": "\\}",
+          "beginCaptures": {
+            "0": { "name": "punctuation.section.interpolation.begin.verum" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.section.interpolation.end.verum" }
+          },
+          "patterns": [
+            { "include": "#keywords" },
+            { "include": "#numbers" },
+            { "include": "#strings" },
+            { "include": "#operators" },
+            { "include": "#functions" }
+          ]
         }
       ]
     },
     "interpolated-strings": {
       "patterns": [
         {
-          "comment": "Format string f\"...\"",
+          "comment": "Format string triple-quoted: f\"\"\"...{expr}...\"\"\"",
+          "name": "string.quoted.interpolated.triple.verum",
+          "begin": "\\b(f|fmt)(\"\"\")",
+          "end": "\"\"\"",
+          "beginCaptures": {
+            "1": { "name": "entity.name.tag.interpolated.verum" },
+            "2": { "name": "punctuation.definition.string.begin.verum" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.verum" }
+          },
+          "patterns": [
+            { "include": "#fstring-interpolation" }
+          ]
+        },
+        {
+          "comment": "Format string single-line: f\"...{expr}...\"",
           "name": "string.quoted.interpolated.verum",
-          "begin": "\\bf\"",
+          "begin": "\\b(f|fmt)(\")",
+          "end": "\"",
+          "beginCaptures": {
+            "1": { "name": "entity.name.tag.interpolated.verum" },
+            "2": { "name": "punctuation.definition.string.begin.verum" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.verum" }
+          },
+          "patterns": [
+            { "include": "#fstring-interpolation" },
+            {
+              "name": "constant.character.escape.verum",
+              "match": "\\\\[nrt0abfv\\\\\"']"
+            },
+            {
+              "name": "constant.character.escape.hex.verum",
+              "match": "\\\\x[0-9a-fA-F]{2}"
+            },
+            {
+              "name": "constant.character.escape.unicode.verum",
+              "match": "\\\\u\\{[0-9a-fA-F]+\\}"
+            }
+          ]
+        }
+      ]
+    },
+    "fstring-interpolation": {
+      "patterns": [
+        {
+          "name": "meta.interpolation.verum",
+          "begin": "\\{",
+          "end": "\\}",
+          "beginCaptures": {
+            "0": { "name": "punctuation.section.interpolation.begin.verum" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.section.interpolation.end.verum" }
+          },
+          "patterns": [
+            {
+              "comment": "Format specifier after colon",
+              "name": "support.other.format-spec.verum",
+              "match": ":[^}]*"
+            },
+            { "include": "#keywords" },
+            { "include": "#numbers" },
+            { "include": "#strings" },
+            { "include": "#operators" },
+            { "include": "#functions" }
+          ]
+        }
+      ]
+    },
+    "raw-multiline-strings": {
+      "patterns": [
+        {
+          "comment": "Raw multiline string \"\"\"...\"\"\"",
+          "name": "string.quoted.triple.verum",
+          "begin": "\"\"\"",
+          "end": "\"\"\"",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.string.begin.verum" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.verum" }
+          }
+        }
+      ]
+    },
+    "byte-strings": {
+      "patterns": [
+        {
+          "comment": "Byte string b\"...\"",
+          "name": "string.quoted.byte.verum",
+          "begin": "\\bb\"",
           "end": "\"",
           "beginCaptures": {
             "0": { "name": "punctuation.definition.string.begin.verum" }
@@ -357,24 +667,12 @@
           },
           "patterns": [
             {
-              "name": "meta.interpolation.verum",
-              "begin": "\\{",
-              "end": "\\}",
-              "beginCaptures": {
-                "0": { "name": "source.verum" }
-              },
-              "endCaptures": {
-                "0": { "name": "source.verum" }
-              },
-              "patterns": [
-                { "include": "#keywords" },
-                { "include": "#numbers" },
-                { "include": "#operators" }
-              ]
+              "name": "constant.character.escape.verum",
+              "match": "\\\\[nrt0\\\\\"']"
             },
             {
-              "name": "constant.character.escape.verum",
-              "match": "\\\\."
+              "name": "constant.character.escape.hex.verum",
+              "match": "\\\\x[0-9a-fA-F]{2}"
             }
           ]
         }
@@ -383,46 +681,39 @@
     "strings": {
       "patterns": [
         {
-          "comment": "Raw string",
-          "name": "string.quoted.raw.verum",
-          "begin": "r#*\"",
-          "end": "\"#*"
-        },
-        {
-          "comment": "Byte string",
-          "name": "string.quoted.byte.verum",
-          "begin": "b\"",
-          "end": "\"",
-          "patterns": [
-            {
-              "name": "constant.character.escape.verum",
-              "match": "\\\\(n|r|t|\\\\|\"|'|0|x[0-9a-fA-F]{2})"
-            }
-          ]
-        },
-        {
-          "comment": "Regular string",
+          "comment": "Regular single-line string",
           "name": "string.quoted.double.verum",
           "begin": "\"",
           "end": "\"",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.string.begin.verum" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.verum" }
+          },
           "patterns": [
             {
               "name": "constant.character.escape.verum",
-              "match": "\\\\(n|r|t|\\\\|\"|'|0|x[0-9a-fA-F]{2}|u\\{[0-9a-fA-F]+\\})"
+              "match": "\\\\[nrt0abfv\\\\\"']"
+            },
+            {
+              "name": "constant.character.escape.hex.verum",
+              "match": "\\\\x[0-9a-fA-F]{2}"
+            },
+            {
+              "name": "constant.character.escape.unicode.verum",
+              "match": "\\\\u\\{[0-9a-fA-F]+\\}"
             }
           ]
-        },
+        }
+      ]
+    },
+    "chars": {
+      "patterns": [
         {
           "comment": "Character literal",
           "name": "string.quoted.single.verum",
-          "begin": "'",
-          "end": "'",
-          "patterns": [
-            {
-              "name": "constant.character.escape.verum",
-              "match": "\\\\(n|r|t|\\\\|\"|'|0|x[0-9a-fA-F]{2}|u\\{[0-9a-fA-F]+\\})"
-            }
-          ]
+          "match": "'(?:[^'\\\\]|\\\\[nrt0abfv\\\\\"']|\\\\x[0-9a-fA-F]{2}|\\\\u\\{[0-9a-fA-F]+\\})'"
         }
       ]
     },
@@ -456,93 +747,124 @@
       ]
     },
     "operators": {
-      "comment": "All operators use single neutral scope for consistent coloring",
       "patterns": [
         {
-          "comment": "All operators - maximal munch order (3-char, 2-char, 1-char)",
-          "name": "source.verum",
-          "match": "<<=|>>=|\\.\\.\\.|\\.\\.=|\\|>|->|=>|\\?\\.|\\?\\?|::|\\*\\*|==|!=|<=|>=|&&|\\|\\||<<|>>|\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=|\\.\\.|[+\\-*/%<>=!&|^~?.]"
+          "comment": "Range and spread",
+          "name": "keyword.operator.range.verum",
+          "match": "\\.\\.=|\\.\\.\\.|\\.\\."
+        },
+        {
+          "comment": "Pipeline",
+          "name": "keyword.operator.pipeline.verum",
+          "match": "\\|>"
+        },
+        {
+          "comment": "Arrows",
+          "name": "keyword.operator.arrow.verum",
+          "match": "->|=>"
+        },
+        {
+          "comment": "Optional chaining / null coalescing",
+          "name": "keyword.operator.optional.verum",
+          "match": "\\?\\.|\\?\\?|\\?"
+        },
+        {
+          "comment": "Path separator",
+          "name": "keyword.operator.path.verum",
+          "match": "::"
+        },
+        {
+          "comment": "Power",
+          "name": "keyword.operator.arithmetic.verum",
+          "match": "\\*\\*"
+        },
+        {
+          "comment": "Comparison",
+          "name": "keyword.operator.comparison.verum",
+          "match": "==|!=|<=|>="
+        },
+        {
+          "comment": "Logical",
+          "name": "keyword.operator.logical.verum",
+          "match": "&&|\\|\\||!"
+        },
+        {
+          "comment": "Bitwise shift",
+          "name": "keyword.operator.bitwise.verum",
+          "match": "<<=|>>=|<<|>>"
+        },
+        {
+          "comment": "Compound assignment",
+          "name": "keyword.operator.assignment.compound.verum",
+          "match": "\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^="
+        },
+        {
+          "comment": "Arithmetic and bitwise",
+          "name": "keyword.operator.verum",
+          "match": "[+\\-*/%<>&|^~]"
+        },
+        {
+          "comment": "Assignment",
+          "name": "keyword.operator.assignment.verum",
+          "match": "="
+        },
+        {
+          "comment": "Member access",
+          "name": "keyword.operator.accessor.verum",
+          "match": "\\."
+        },
+        {
+          "comment": "Reference sigil",
+          "name": "keyword.operator.reference.verum",
+          "match": "&"
         }
       ]
     },
     "functions": {
       "patterns": [
         {
-          "comment": "Function call",
-          "name": "entity.name.function.verum",
-          "match": "\\b([a-z_][a-zA-Z0-9_]*)\\s*(?=\\()"
+          "comment": "Function declaration: fn name(",
+          "match": "\\b(fn)\\s+([a-z_][a-zA-Z0-9_]*)",
+          "captures": {
+            "1": { "name": "keyword.other.reserved.verum" },
+            "2": { "name": "entity.name.function.definition.verum" }
+          }
         },
         {
-          "comment": "Macro invocation",
-          "name": "entity.name.function.macro.verum",
-          "match": "\\b([a-z_][a-zA-Z0-9_]*)!"
+          "comment": "Function call: name(",
+          "match": "\\b([a-z_][a-zA-Z0-9_]*)\\s*(?=\\()",
+          "captures": {
+            "1": { "name": "entity.name.function.verum" }
+          }
         },
         {
-          "comment": "Builtin functions",
+          "comment": "Built-in free functions (spec §5.2)",
           "name": "support.function.builtin.verum",
-          "match": "\\b(len|assert|assert_eq|assert_ne|panic|print|println|debug|todo|unreachable|drop|clone|copy|sizeof|alignof|typeof)\\b"
-        }
-      ]
-    },
-    "attributes": {
-      "patterns": [
-        {
-          "comment": "Attribute",
-          "name": "meta.attribute.verum",
-          "begin": "@",
-          "end": "(?<=\\))|(?=\\s|$)|(?=[{;])",
-          "beginCaptures": {
-            "0": { "name": "source.verum" }
-          },
-          "patterns": [
-            {
-              "comment": "Attribute names",
-              "name": "entity.name.function.attribute.verum",
-              "match": "\\b(verify|hint|inline|cold|hot|test|bench|std|profile|feature|specialize|differentiable|injectable|inject|using|lock_level|deadlock_detection|migration|gpu)\\b"
-            },
-            {
-              "comment": "Attribute arguments",
-              "name": "meta.attribute.arguments.verum",
-              "begin": "\\(",
-              "end": "\\)",
-              "patterns": [
-                {
-                  "name": "constant.language.verum",
-                  "match": "\\b(proof|runtime|static|skip|always|never|auto|application|systems|research|Singleton|Request|Transient|negative|enabled|disabled)\\b"
-                },
-                { "include": "#strings" },
-                { "include": "#numbers" }
-              ]
-            }
-          ]
-        },
-        {
-          "comment": "Hash attribute #[...]",
-          "name": "meta.attribute.hash.verum",
-          "begin": "#\\[",
-          "end": "\\]",
-          "beginCaptures": {
-            "0": { "name": "source.verum" }
-          },
-          "endCaptures": {
-            "0": { "name": "source.verum" }
-          },
-          "patterns": [
-            {
-              "name": "entity.name.function.attribute.verum",
-              "match": "\\b([a-z_][a-zA-Z0-9_]*)(::)?([a-z_][a-zA-Z0-9_]*)?\\b"
-            },
-            { "include": "#strings" }
-          ]
+          "match": "\\b(print|println|eprint|eprintln|assert|assert_eq|assert_ne|panic|todo|unimplemented|unreachable|debug|drop|sizeof|alignof|typeof|len|join|spawn_scoped)\\b"
         }
       ]
     },
     "punctuation": {
       "patterns": [
         {
-          "comment": "All punctuation - neutral color",
-          "name": "source.verum",
-          "match": "[,;\\[\\](){}]"
+          "match": "[,;]",
+          "name": "punctuation.separator.verum"
+        },
+        {
+          "match": "[\\[\\]]",
+          "name": "punctuation.brackets.square.verum"
+        },
+        {
+          "match": "[\\(\\)]",
+          "name": "punctuation.brackets.round.verum"
+        },
+        {
+          "match": "[\\{\\}]",
+          "name": "punctuation.brackets.curly.verum"
+        },
+        {
+          "match": ":",
+          "name": "punctuation.separator.type.verum"
         }
       ]
     }
