@@ -838,7 +838,7 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./ && node esbuild.js",
     "watch": "tsc -watch -p ./",
-    "build": "npm run compile",
+    "build": "npm run compile && npm run package",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
