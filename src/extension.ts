@@ -899,6 +899,40 @@ function registerCommands(context: vscode.ExtensionContext): void {
         });
     });
 
+    // --- CBGR escape analysis ---
+
+    // LSP code actions emit `verum.showEscapeAnalysis` with
+    //   arguments: [uri: string, position: { line, character }]
+    //
+    // The rich, structured escape-analysis report (tier / escape verdict /
+    // promotion availability) is already produced by the server's hover
+    // handler on any `&` sigil. Rather than duplicate that logic here, we
+    // re-dispatch to the built-in hover action at the reported position —
+    // VS Code opens the bubble with the full markdown the server returned.
+    register('verum.showEscapeAnalysis', async (...args: unknown[]) => {
+        const uriArg = args[0] as string | undefined;
+        const posArg = args[1] as { line?: number; character?: number } | undefined;
+
+        if (!uriArg || typeof posArg?.line !== 'number' || typeof posArg.character !== 'number') {
+            vscode.window.showWarningMessage(
+                'verum.showEscapeAnalysis: missing URI or position arguments.',
+            );
+            return;
+        }
+
+        const uri = vscode.Uri.parse(uriArg);
+        const doc = await vscode.workspace.openTextDocument(uri);
+        const editor = await vscode.window.showTextDocument(doc, { preserveFocus: false });
+        const position = new vscode.Position(posArg.line, posArg.character);
+
+        // Move the cursor onto the `&` sigil and trigger the hover bubble —
+        // this is the same surface used elsewhere for "tell me about this
+        // reference", so the UX stays consistent.
+        editor.selection = new vscode.Selection(position, position);
+        editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+        await vscode.commands.executeCommand('editor.action.showHover');
+    });
+
     // --- Navigation delegates ---
 
     register('verum.findReferences', async () => {

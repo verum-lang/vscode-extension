@@ -513,8 +513,8 @@
         },
         "verum.cbgr.showOptimizationHints": {
           "type": "boolean",
-          "default": true,
-          "description": "Show hints for converting to &checked references"
+          "default": false,
+          "description": "Show inlay hints on every `&` reference suggesting promotion to `&checked T`. Off by default — these block-comment hints are noisy and overlay the source in the editor."
         },
         "verum.verification.showCostWarnings": {
           "type": "boolean",
@@ -643,6 +643,12 @@
         "title": "Verum: Verify Function Contracts",
         "category": "Verum",
         "icon": "$(shield)"
+      },
+      {
+        "command": "verum.showEscapeAnalysis",
+        "title": "Verum: Show Escape Analysis",
+        "category": "Verum",
+        "icon": "$(graph)"
       },
       {
         "command": "verum.showTypeHierarchy",
