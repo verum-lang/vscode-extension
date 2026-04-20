@@ -41,10 +41,10 @@ Then in VS Code:
 cd editors/vscode
 npm install
 npm run compile
-npm run package  # Creates verum-language-1.0.0.vsix
+npm run package  # Creates verum-language-0.3.0.vsix
 
 # Install globally (available in all VS Code windows)
-code --install-extension verum-language-1.0.0.vsix
+code --install-extension verum-language-0.3.0.vsix
 
 # To uninstall later:
 code --uninstall-extension verum-lang.vr-language
@@ -74,8 +74,8 @@ ln -s "$(pwd)" ~/.vscode/extensions/verum-language
 
 1. **Check LSP Server**:
    ```bash
-   which verum-lsp-server
-   # Should output: /path/to/verum-lsp-server
+   which verum
+   # Should output: /path/to/verum   (the LSP is the `verum lsp` subcommand)
    ```
 
 2. **Create Test File**:
@@ -208,22 +208,23 @@ For debugging:
 ### Issue: "Language Server Not Starting"
 
 **Check**:
-1. LSP server is in PATH:
+1. `verum` CLI is in PATH:
    ```bash
-   which verum-lsp-server
+   which verum
    ```
-2. LSP server is executable:
+2. The LSP subcommand runs:
    ```bash
-   verum-lsp-server --help
+   verum lsp --help
    ```
 3. Check output channel:
    - View → Output → "Verum Language Server"
 
 **Fix**:
-- Set explicit path in settings:
+- Install the CLI: `cargo install --path crates/verum_cli --force`.
+- Or set an explicit path in settings:
   ```json
   {
-    "verum.lsp.serverPath": "/full/path/to/verum-lsp-server"
+    "verum.lsp.serverPath": "/full/path/to/verum"
   }
   ```
 - Restart extension:

@@ -1,93 +1,175 @@
 # Verum Language Support for VS Code
 
-Official Visual Studio Code extension for the Verum programming language, providing rich IDE support including refinement type validation, CBGR profiling, and LSP integration.
+Official Visual Studio Code extension for the [Verum](https://verum-lang.org)
+programming language — refinement-type validation, CBGR memory-safety
+analysis, LSP integration, and end-to-end command palette / task
+provider / dashboard surfaces.
+
+**Current version**: `0.3.0` (2026-04-20).
+See [`CHANGELOG.md`](./CHANGELOG.md) for the full release history.
 
 ## Features
 
-### 1. Syntax Highlighting
-- Full syntax highlighting for Verum language constructs (100+ patterns)
-- Support for refinement types (e.g., `Int{i > 0}`)
-- Highlighting for CBGR reference tiers (`&T`, `&checked T`, `&unsafe T`)
-- Attribute highlighting (`@verify(proof)`, `@hint("split")`)
-- Tagged literals (`sql#"..."`, `rx#"..."`, `mat#[...]`)
-- Interpolated strings (`f"Hello, {name}!"`)
-- Formal proof keywords (`theorem`, `lemma`, `proof`, tactics)
-- Semantic token support for enhanced highlighting
+### Syntax highlighting
 
-### 2. Code Snippets (100+)
-Comprehensive snippets for rapid development:
-- **Functions**: `fn`, `async-fn`, `fn-using`, `fn-contract`, `meta-fn`
-- **Types**: `type`, `type-refined`, `type-sigma`, `newtype`, `type-tensor`
-- **Protocols**: `protocol`, `impl`, `impl-for`
-- **Context**: `context`, `provide`, `using-group`
-- **Verification**: `fn-requires`, `fn-ensures`, `theorem`, `lemma`, `proof`
-- **Control flow**: `if`, `match`, `for`, `while`, `loop`
-- **Error handling**: `try-catch`, `result-match`, `option-match`
-- **Async**: `async-fn`, `spawn`, `stream`, `select`
-- **Testing**: `test`, `test-async`, `bench`
+Grammar-driven — the TextMate patterns are derived from
+`grammar/verum.ebnf`, so what the editor colours is exactly what
+the parser accepts:
 
-### 3. Real-Time Refinement Validation
-- **On-type validation**: Get immediate feedback as you type
-- **Concrete counterexamples**: See actual values that violate constraints
-- **Debounced validation**: 200ms delay to avoid overwhelming the SMT solver
-- **Multiple validation modes**: Quick (<100ms), Thorough (<1s), Complete (unlimited)
+- Refinement types: `Int{i > 0}`, `List<T>{len(self) > 0}`.
+- CBGR reference tiers: `&T`, `&mut T`, `&checked T`, `&unsafe T`.
+- Attribute families: `@verify(proof)`, `@hint("split")`,
+  `@derive(...)` (member-by-member), `@device(...)`, `@inline(...)`.
+- Tagged literals: `sql#"..."`, `rx#"..."`, `json#"..."`,
+  `mat#[...]`, 30+ built-in tags plus user-defined.
+- Interpolated strings: `f"Hello, {name:format}!"`, triple-quoted
+  raw multiline `"""..."""`.
+- Proof vocabulary: `theorem`, `lemma`, `proof`, `calc`, `have`,
+  `suffices`, `qed`, plus tactic combinators.
+- Semantic tokens from the LSP on top of the TextMate pattern for
+  precise highlighting of CBGR references, protocols, refinement
+  variables, etc.
+
+### Code snippets (100+)
+
+- **Functions** — `fn`, `async-fn`, `fn-using`, `fn-contract`,
+  `meta-fn`.
+- **Types** — `type`, `type-refined`, `type-sigma`, `newtype`,
+  `type-tensor`.
+- **Protocols** — `protocol`, `implement`, `implement-for`.
+- **Context** — `context`, `provide`, `using-group`.
+- **Verification** — `fn-requires`, `fn-ensures`, `theorem`,
+  `lemma`, `proof`; all five shipping `@verify` strategies
+  (`runtime` / `proof` / `compare` / `cubical` / `dependent`).
+- **Control flow** — `if`, `match`, `for`, `while`, `loop`,
+  `try-catch`, `errdefer`.
+- **Async** — `spawn`, `stream`, `select`, `nursery`.
+- **Testing** — `test`, `test-async`, `bench`.
+
+### Refinement-type validation
+
+- **On-type validation** through `verum/validateRefinement` with
+  200 ms debouncing and concrete counter-examples.
+- **Three latency budgets** via `verum.lsp.validationMode`:
+  `quick` (<100 ms, default), `thorough` (<1 s), `complete`
+  (unbounded — reserved for background CI/CD).
+- **Cache** with client-controlled capacity (`cacheMaxEntries`) and
+  TTL (`cacheTtlSeconds`); hot-swapped on
+  `workspace/didChangeConfiguration` — **no server restart needed**
+  for any setting change.
 
 Example:
+
 ```verum
 fn divide(x: Int, y: Int{i != 0}) -> Int {
     x / y
 }
 
-let result = divide(10, 0);  // Error: Counterexample: y = 0
+let result = divide(10, 0);
+// ↑ Error: y = 0 does not satisfy `i != 0`
+//   Counterexample attached to the diagnostic.
 ```
 
-### 4. Quick Fixes
-Six categories of automated code fixes:
-- **Runtime check wrapping**: `NonZero.try_from(y)?`
-- **Inline refinement**: Add constraint to parameter type
-- **Sigma type conversion**: Use dependent pairs
-- **Runtime assertion**: Insert `assert!()` statements
-- **Weaken refinement**: Relax constraints
-- **Promote to &checked**: Convert to checked references
+### Quick fixes
 
-### 5. Inlay Hints
-- Display inferred refinement types inline
-- Show type information for complex expressions
-- Configurable visibility
+Six categories served through `verum/getQuickFixes` and the
+standard `textDocument/codeAction` surface:
 
-### 6. Code Actions
-- Context-aware refactoring suggestions
-- Performance optimization hints
-- CBGR tier promotion recommendations
+- `runtime_check` — wrap in `Result<T, E>` / `NonZero.try_from(y)?`.
+- `inline_refinement` — add `{i != 0}` constraint to parameter.
+- `sigma_type` — convert to dependent pair `(v, proof)`.
+- `assertion` — insert `assert(...)` with panic.
+- `weaken_refinement` — relax over-strict constraints.
+- `promote_to_checked` — `&T` → `&checked T` with escape-proof
+  comment (driven by `verum/promoteToChecked`).
 
-### 7. Commands
-- **Promote to &checked** (Cmd/Ctrl+Alt+C): Convert references to zero-overhead checked references
-- **Infer Refinement** (Cmd/Ctrl+Alt+R): Auto-generate refinement constraints
-- **Validate Refinement** (Cmd/Ctrl+Alt+V): Force validation at cursor
-- **Show Verification Profile**: Display verification performance statistics
-- **Show CBGR Profile**: Display memory safety overhead analysis
+### CBGR reference analysis
+
+- **Structured hover** on any `&` / `&mut` / `&checked` / `&unsafe`
+  sigil. The bubble reports tier, mutability, runtime cost,
+  syntactic context (value expression vs type position — the
+  latter doesn't charge any runtime cost), escape-analysis verdict,
+  and whether the reference can be promoted to `&checked T`.
+- **Inlay hints** (opt-in via `verum.cbgr.showOptimizationHints`)
+  render compact badges next to references: `0ns` for promotable,
+  `~15ns` for Tier-0 references that can't be promoted. Nothing in
+  type positions, nothing on already-optimised `&checked` /
+  `&unsafe` references. Full detail lives in the tooltip.
+- **Escape-analysis panel** — the code-action *"View escape analysis
+  details"* emits the `verum.showEscapeAnalysis` command, which
+  repositions the cursor on the sigil and opens the hover bubble.
+
+### Commands
+
+| Command | Shortcut | Effect |
+|---------|----------|--------|
+| `Verum: Run Current File` | `Cmd/Ctrl+Shift+R` | `verum run <file>` in an editor terminal. |
+| `Verum: Run Test` | — | `verum test <file> --filter <fn>` at the cursor. |
+| `Verum: Verify Function Contracts` | — | Re-verify `@verify(...)` obligations under the cursor. |
+| `Verum: Show Escape Analysis` | — | Shows the full CBGR escape-analysis report for the `&` sigil at the cursor. |
+| `Verum: Promote to &checked Reference` | `Cmd/Ctrl+Alt+C` | Upgrade `&T` → `&checked T` with proof comment. |
+| `Verum: Add Runtime Check (Result<T, E>)` | — | Wrap in a runtime fallback when escape analysis fails. |
+| `Verum: Infer Refinement Type` | `Cmd/Ctrl+Alt+R` | Ask the server for a refinement suggestion. |
+| `Verum: Validate Refinement at Cursor` | `Cmd/Ctrl+Alt+V` | One-shot SMT validation at the cursor. |
+| `Verum: Profile Current File` | — | Run `verum profile --all --export=json`. |
+| `Verum: Open Profile Dashboard` | — | Focus the webview. |
+| `Verum: Format Document` | `Cmd/Ctrl+Shift+F` | Delegates to LSP formatter. |
+| `Verum: Restart Language Server` | — | Kill and respawn `verum lsp`. |
+| `Verum: Show Language Server Status` | — | Current state + crash count. |
+
+All SMT-backed commands call through to dedicated custom JSON-RPC
+methods (`verum/validateRefinement`, `verum/promoteToChecked`,
+`verum/inferRefinement`, `verum/getEscapeAnalysis`,
+`verum/getProfile`). The server isolates Z3 on a dedicated
+`verum-smt-worker` OS thread so these methods are fully
+Send-safe — see the [LSP architecture note](https://verum-lang.org/docs/tooling/lsp#custom-verum-json-rpc-methods--architecture).
+
+### Tasks
+
+The extension contributes a task provider (`Terminal → Run Task...`):
+
+- `Verum: build`  → `verum build`
+- `Verum: run`    → `verum run <active-file>`
+- `Verum: test`   → `verum test`
+- `Verum: check`  → `verum check`
+
+### Debug adapter
+
+- `verum.debug.defaultTier` — `"interpreter"` (VBC, full
+  step/breakpoint support) or `"aot"` (LLVM, reduced).
+- `verum.debug.dapServerPath` — override the DAP binary; empty
+  falls back to `verum.lsp.serverPath`.
 
 ## Requirements
 
-- **Verum LSP Server**: The extension requires `verum-lsp-server` to be installed and available in your PATH.
-- **SMT Solver**: Z3 or CVC5 for refinement validation (automatically used by LSP server)
+- **`verum` CLI** on `$PATH`. Install with
+  `cargo install --path crates/verum_cli` (or from a release build).
+  The extension runs `verum lsp` and `verum dap` as subprocess
+  transports.
+- **Z3** (or CVC5 — configurable via `verum.lsp.smtSolver`) for
+  refinement validation. The `verum` binary links against whichever
+  SMT backend was enabled at build time.
+- **VS Code 1.75+**.
 
 ## Installation
 
-### From VS Code Marketplace
-1. Open VS Code
-2. Go to Extensions (Cmd/Ctrl+Shift+X)
-3. Search for "Verum Language"
-4. Click Install
+### From the VS Code Marketplace
+
+1. Open VS Code.
+2. Extensions (`Cmd/Ctrl+Shift+X`).
+3. Search for **"Verum Language"**.
+4. Install.
 
 ### From VSIX
+
 ```bash
-code --install-extension verum-language-1.0.0.vsix
+code --install-extension verum-language-0.3.0.vsix
 ```
 
-### From Source
+### From source (for contributors)
+
 ```bash
-cd editors/vscode
+cd internal/vscode-extension
 npm install
 npm run compile
 code --install-extension .
@@ -95,194 +177,150 @@ code --install-extension .
 
 ## Configuration
 
-### Basic Settings
-```json
-{
-  "verum.lsp.enable": true,
-  "verum.lsp.enableRefinementValidation": true,
-  "verum.lsp.validationMode": "quick",
-  "verum.lsp.showCounterexamples": true,
-  "verum.lsp.diagnosticDelay": 200
-}
-```
+All settings live under the `verum.*` namespace. The extension
+forwards every one of them to the server through
+`initializationOptions` on start and
+`workspace/didChangeConfiguration` on change, so edits take effect
+**without a server restart**.
 
-### Advanced Settings
-```json
-{
-  "verum.lsp.smtSolver": "z3",
-  "verum.lsp.smtTimeout": 50,
-  "verum.lsp.cacheValidationResults": true,
-  "verum.cbgr.enableProfiling": false,
-  "verum.verification.showCostWarnings": true
-}
-```
+### LSP
 
-See [package.json](./package.json) for all available settings.
+| Setting | Default | Meaning |
+|---------|---------|---------|
+| `verum.lsp.enable` | `true` | Master switch. |
+| `verum.lsp.serverPath` | `"verum"` | Path to the `verum` binary (the LSP runs via `verum lsp`). |
+| `verum.lsp.enableRefinementValidation` | `true` | SMT-backed refinement validation while typing. |
+| `verum.lsp.validationMode` | `"quick"` | `quick` / `thorough` / `complete` latency budget. |
+| `verum.lsp.showCounterexamples` | `true` | Attach concrete witness values to refinement errors. |
+| `verum.lsp.maxCounterexampleTraces` | `5` | Cap on execution-trace steps attached to a counter-example. |
+| `verum.lsp.showInlayHints` | `true` | Inline inferred types. |
+| `verum.lsp.diagnosticDelay` | `200` (ms) | Debounce between keystroke and validation. |
+| `verum.lsp.smtSolver` | `"auto"` | `auto` / `z3` / `cvc5`. `auto` lets the compiler's capability router choose. |
+| `verum.lsp.smtTimeout` | `50` (ms) | Per-obligation SMT timeout. |
+| `verum.lsp.cacheValidationResults` | `true` | Cache SMT results keyed by goal hash. |
+| `verum.lsp.cacheTtlSeconds` | `300` | Cache entry TTL. |
+| `verum.lsp.cacheMaxEntries` | `1000` | Cache capacity. On downsize the oldest entries evict first. |
+| `verum.lsp.trace.server` | `"off"` | `messages` / `verbose` dumps LSP traffic to the output channel. |
 
-## Usage
+### CBGR
 
-### Writing Code with Refinements
-The extension provides real-time feedback when writing refinement types:
+| Setting | Default | Meaning |
+|---------|---------|---------|
+| `verum.cbgr.enableProfiling` | `false` | Enable CBGR per-deref profiling (~15 ns overhead). |
+| `verum.cbgr.showOptimizationHints` | `false` | Opt-in inlay hints on every `&` reference. Off by default — the hover bubble already shows this information on demand. |
 
-```verum
-// Good: Refinement satisfied
-fn safe_divide(x: Int, y: Int{i != 0}) -> Int {
-    x / y
-}
+### Verification
 
-// Error: Counterexample shown
-fn main() {
-    let divisor = 0;
-    safe_divide(10, divisor);  // Counterexample: divisor = 0
-}
-```
+| Setting | Default | Meaning |
+|---------|---------|---------|
+| `verum.verification.showCostWarnings` | `true` | Warn when an obligation exceeds the slow threshold. |
+| `verum.verification.slowThresholdMs` | `5000` | Slow-verification threshold. |
 
-### Quick Fixes
-1. Place cursor on error
-2. Press `Cmd/Ctrl+.` or click the lightbulb
-3. Select from available fixes:
-   - Wrap with runtime check (safe)
-   - Add inline refinement (breaking)
-   - Add assertion (safe)
-
-### Optimizing Performance
-The extension can suggest CBGR optimizations:
-
-```verum
-// Before: 15ns overhead per check
-fn process(data: &List<Int>) { ... }
-
-// Quick fix suggestion: Promote to &checked
-fn process(data: &checked List<Int>) { ... }  // 0ns overhead
-```
-
-### Viewing Profiles
-- **Verification Profile**: Shows SMT solver costs, slow verifications, cache statistics
-- **CBGR Profile**: Shows memory safety overhead, optimization opportunities
+See [`package.json`](./package.json) for every knob, including
+code-lens, formatting, semantic-highlighting, and debug settings.
 
 ## Troubleshooting
 
 ### Language Server Not Starting
-1. Verify `verum-lsp-server` is in your PATH:
+
+1. Verify `verum` is on `$PATH`:
    ```bash
-   which verum-lsp-server
+   which verum
+   # should print ~/.cargo/bin/verum (or wherever it was installed)
    ```
-2. Check the output channel: View → Output → Verum Language Server
-3. Try restarting the server: Command Palette → "Verum: Restart Language Server"
+2. If it isn't, either install with `cargo install --path
+   crates/verum_cli` or point `verum.lsp.serverPath` at the
+   absolute path of your build.
+3. Check the output channel: `View → Output → Verum Language
+   Server` — server traces and crash reports land there.
+4. `Command Palette → "Verum: Restart Language Server"` re-launches.
 
-### Slow Validation
-1. Reduce validation mode to "quick" in settings
-2. Increase diagnostic delay (default 200ms)
-3. Disable caching if it causes issues
+### Validation feels slow
 
-### SMT Solver Errors
-1. Ensure Z3 or CVC5 is installed
-2. Check solver timeout settings
-3. Review SMT solver logs in output channel
+- Keep `verum.lsp.validationMode` at `"quick"` (the default) while
+  editing — switch to `"thorough"` only for on-save runs.
+- Increase `verum.lsp.diagnosticDelay` (default 200 ms) if you type
+  very fast and the solver can't keep up.
+- Raise the cache: `verum.lsp.cacheMaxEntries` to `4000`,
+  `cacheTtlSeconds` to `1800`.
+- Reduce the counter-example trace depth:
+  `verum.lsp.maxCounterexampleTraces = 2`.
+
+### SMT solver errors
+
+- Confirm the solver is bundled in your `verum` binary:
+  `verum smt-info`.
+- Tune `verum.lsp.smtSolver` — `auto` is the safe default;
+  `z3` / `cvc5` force a specific backend.
 
 ## Development
 
 ### Prerequisites
-- **Node.js**: 18.0.0 or higher
-- **VS Code**: 1.75.0 or higher
-- **npm**: 9.0.0 or higher
 
-### Building from Source
+- Node.js ≥ 18, npm ≥ 9.
+- VS Code ≥ 1.75.
+
+### Build & run
+
 ```bash
-cd editors/vscode
+cd internal/vscode-extension
 npm install
 npm run compile
 ```
 
-### Running in Development Mode (F5 Launch)
-1. Open `editors/vscode` folder in VS Code
-2. Press **F5** to launch Extension Development Host
-3. A new VS Code window opens with the extension loaded
-4. Open any `.vr` file to test syntax highlighting
-5. Changes to TypeScript files require reloading the Extension Development Host
+To iterate on the extension itself:
 
-### Watch Mode for Active Development
+1. `npm run watch` (continuous TypeScript compilation).
+2. Open `internal/vscode-extension` in VS Code.
+3. Press `F5` to launch the Extension Development Host.
+
+### Tests
+
 ```bash
-# Terminal 1: Start TypeScript compiler in watch mode
-npm run watch
-
-# Then press F5 in VS Code to launch Extension Development Host
-# After making changes, reload the host with Cmd/Ctrl+R
+npm test          # full VS Code-integration suite
+npm run lint      # ESLint
+npm run compile   # type-check only
 ```
 
-### Running Tests
-```bash
-# Run all tests (requires VS Code to be installed)
-npm test
+### Directory layout
 
-# Run linting only
-npm run lint
-
-# Type check only
-npm run compile
 ```
-
-**Note**: Tests run in a special VS Code instance. Ensure no other VS Code instances have the extension loaded.
-
-### Testing Without LSP Server
-The extension works for syntax highlighting and snippets without the LSP server. For full functionality:
-1. Build the LSP server: `cd crates/verum_lsp && cargo build --release`
-2. Add to PATH: `export PATH="$PWD/target/release:$PATH"`
-3. Or set in VS Code settings: `"verum.lsp.serverPath": "/path/to/verum-lsp-server"`
+internal/vscode-extension/
+├── src/
+│   ├── extension.ts              # entry point, activates the LSP client
+│   ├── refinementValidator.ts    # on-type validation wrapper
+│   ├── codeActionProvider.ts     # quick-fix code-actions
+│   ├── inlayHintsProvider.ts     # CBGR / type inlay hints
+│   ├── dashboardWebview.ts       # profile dashboard
+│   └── debugAdapter.ts           # DAP descriptor factory
+├── syntaxes/verum.tmLanguage.json
+├── snippets/verum.json
+├── language-configuration.json
+└── package.json
+```
 
 ### Packaging
+
 ```bash
-# Create .vsix package
-npm run package
-
-# Install the package
-code --install-extension verum-language-1.0.0.vsix
-```
-
-### Directory Structure
-```
-editors/vscode/
-├── src/
-│   ├── extension.ts           # Main entry point
-│   ├── refinementValidator.ts # Validation engine
-│   ├── codeActionProvider.ts  # Quick fix provider
-│   └── inlayHintsProvider.ts  # Type hints
-├── syntaxes/
-│   └── verum.tmLanguage.json  # TextMate grammar (100+ patterns)
-├── snippets/
-│   └── verum.json             # Code snippets (100+ snippets)
-├── src/test/
-│   ├── runTest.ts             # Test runner
-│   └── suite/
-│       ├── index.ts           # Test suite loader
-│       ├── extension.test.ts  # Extension tests
-│       ├── refinementValidator.test.ts
-│       └── dashboard.test.ts
-└── package.json               # Extension manifest
+npm run package                    # produces verum-language-0.3.0.vsix
+code --install-extension verum-language-0.3.0.vsix
 ```
 
 ## Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
+Contributions welcome — see
+[`CONTRIBUTING.md`](../../CONTRIBUTING.md) for the workflow.
 
 ## License
 
-MIT License - see [LICENSE](../../LICENSE) for details.
+MIT — see [`LICENSE`](./LICENSE).
 
 ## Links
 
-- [Verum Language Documentation](https://verum-lang.org/docs)
-- [Language Specification](../../docs/detailed/)
-- [LSP Server Documentation](../../crates/verum_lsp/README.md)
-- [Issue Tracker](https://github.com/verum-lang/verum/issues)
+- [Verum Language documentation](https://verum-lang.org/docs)
+- [Tooling → VS Code extension](https://verum-lang.org/docs/tooling/vscode-extension)
+- [Tooling → LSP](https://verum-lang.org/docs/tooling/lsp)
+- [Tooling → CLI](https://verum-lang.org/docs/tooling/cli)
+- [Issue tracker](https://github.com/verum-lang/verum/issues)
 
-## Changelog
-
-### 1.0.0 (Initial Release)
-- Syntax highlighting for `.vr` files
-- LSP integration with refinement validation
-- Real-time counterexample display
-- Quick fix actions (6 categories)
-- Inlay hints for type inference
-- Commands for optimization and profiling
-- Comprehensive configuration options
+See [`CHANGELOG.md`](./CHANGELOG.md) for the full release history.

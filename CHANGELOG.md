@@ -5,6 +5,145 @@ All notable changes to the Verum VS Code extension will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-04-20
+
+### Developer-tooling overhaul — full alignment with spec §§1-6
+
+End-to-end integration with the `verum_lsp` and `verum_cli` crates
+after the spec-alignment push in those packages. The extension now
+activates every surface described in
+`docs/detailed/25-developer-tooling.md` — hover, inlay hints, code
+actions, dashboard commands, CBGR escape analysis — and every custom
+`verum/*` JSON-RPC method backing those surfaces is live.
+
+### Fixed
+
+- **Startup restart-loop eliminated.** The LSP server used to advertise
+  `execute_command_provider` for `verum.runFile` / `verum.runTest` /
+  `verum.verifyFunction`, which the client already owned. tower-lsp's
+  `ExecuteCommandFeature` registered those ids a second time and
+  produced the fatal `command 'verum.runFile' already exists` error,
+  retried once per second forever. The server no longer claims those
+  commands; the inits loop is gone.
+- **Stale `verum.lsp.serverPath`.** Bundled default was a hardcoded
+  absolute path from an earlier project layout (`~/projects/.../axiom/
+  target/release/verum`). Default restored to `"verum"` so it
+  resolves through `$PATH` to `~/.cargo/bin/verum` after `cargo install
+  --path crates/verum_cli`.
+- **CBGR inlay-hints overlay on source.** The server emitted a ~50-char
+  block-comment per reference (`/* can promote → &checked T: 0ns
+  (saves ~15ns) */`) even in type positions (`fn f(p: &List<T>)`),
+  visually shredding files like `term_compose_demo.vr`. See **Changed**
+  below for the new behaviour.
+
+### Added — hover, code actions, commands
+
+- **Structured CBGR hover** on every `&` / `&mut` / `&checked` /
+  `&unsafe` sigil. The bubble now reports *tier* (0 / 1 / 2),
+  *mutability* (shared vs mutable borrow), *runtime cost* (~15ns /
+  0ns per deref), *syntactic context* (value expression vs type
+  position — the latter charges no runtime cost), and the *escape
+  analysis verdict* with promotion availability. Implemented server
+  side in `CbgrHintProvider::analyze_at_position` and
+  `format_hover_markdown`; the extension's hover handler routes
+  directly to it.
+- **`verum.showEscapeAnalysis` command.** Triggered from the LSP code
+  action *"View escape analysis details"*. Re-dispatches to
+  `editor.action.showHover` at the reported position so the rich
+  markdown report the server produces lands in the usual hover
+  bubble. Added to `package.json` under the `Verum` category with the
+  `$(graph)` icon; listed in the command-palette table in the docs.
+- **Five custom `verum/*` JSON-RPC methods** now reachable from the
+  extension:
+  - `verum/validateRefinement` — SMT-backed validation at a position
+    with counter-example.
+  - `verum/promoteToChecked` — upgrade `&T` → `&checked T` with
+    escape-proof comment.
+  - `verum/inferRefinement` — infer the tightest refinement for a
+    symbol from its usages.
+  - `verum/getEscapeAnalysis` — structured CBGR report for a sigil.
+  - `verum/getProfile` — compilation + runtime profiling summary.
+  The four commands in the palette that previously emitted these
+  requests (*Promote to &checked Reference*, *Add Runtime Check*,
+  *Infer Refinement Type*, *Validate Refinement at Cursor*) stopped
+  returning `MethodNotFound` — the caution block documenting that
+  limitation has been removed.
+
+### Added — settings surfaced
+
+Three new `verum.lsp.*` knobs — the client already sent these through
+`initializationOptions`, but their names weren't listed in the
+settings UI:
+
+- `verum.lsp.cacheTtlSeconds` (default `300`) — TTL of the validation
+  cache; server hot-swaps at runtime via `workspace/didChangeConfig`.
+- `verum.lsp.cacheMaxEntries` (default `1000`) — cache capacity;
+  on downsize the oldest entries evict first.
+- `verum.lsp.maxCounterexampleTraces` (default `5`) — cap on
+  execution-trace steps attached to a counter-example.
+
+### Changed
+
+- **CBGR inlay-hint labels dramatically shortened.** Replaced
+  50-character block comments with one-word badges: `0ns` for
+  promotable references and `~15ns` for Tier-0 references that can't
+  be promoted. All detail lives in the tooltip and the hover bubble.
+  Hints are now context-aware — nothing is rendered in type positions
+  or on `&checked` / `&unsafe` sigils.
+- **`verum.cbgr.showOptimizationHints` default flipped `true` → `false`.**
+  Inlay hints are opt-in; the hover bubble already shows the same
+  information on demand. Turning them on is a deliberate "show me
+  everything" mode for profiling sessions.
+- **Server applies every `initializationOptions` key.** On `initialize`
+  and on every `workspace/didChangeConfiguration` the server now reads
+  thirteen client-side knobs and reshapes its internals accordingly —
+  no server restart required for any of them. The settings currently
+  plumbed: `enableRefinementValidation`, `validationMode`,
+  `showCounterexamples`, `maxCounterexampleTraces`, `smtSolver`,
+  `smtTimeout`, `cacheValidationResults`, `cacheTtlSeconds`,
+  `cacheMaxEntries`, `cbgrEnableProfiling`,
+  `cbgrShowOptimizationHints`, `verificationShowCostWarnings`,
+  `verificationSlowThresholdMs`. The validation cache is resized in
+  place; warm entries survive when headroom allows.
+
+### Added — CLI companion (visible through tasks & dashboard)
+
+The bundled task provider and the dashboard webview now call through
+to the richer `verum verify` / `verum profile` surfaces that landed
+in this release:
+
+- `verum verify` gained `--profile`, `--budget DURATION`, `--export
+  PATH`, `--distributed-cache URL`. Budget is enforced *per project*
+  (not per file); remaining budget shrinks for each file, and the
+  iterator stops once it is exhausted.
+- `verum profile` gained `--all` (unified dashboard per spec §6),
+  `--sample-rate PERCENT`, `--functions foo,bar` (exact-match filter
+  applied upstream so every section agrees on the population),
+  `--precision us|ns` with magnitude-aware formatting (`842ns` /
+  `41.7µs` / `2.500ms`).
+- `verum.toml [verify]` block supplies defaults for all of the above;
+  CLI flags always win.
+
+### Architecture note — Send-safe SMT isolation
+
+The custom methods backed by Z3 are only reachable because the server
+now runs a dedicated `verum-smt-worker` OS thread. The
+`RefinementVerifier` (with its `Rc<ContextInternal>` and
+`NonNull<_Z3_pattern>`) never leaves that thread; handlers talk to it
+through a `Send + Sync` `SmtWorkerHandle` backed by `mpsc::sync_channel`
++ `tokio::sync::oneshot`. Only owned, Send-safe payloads cross the
+await boundary, which lets tower-lsp's `.custom_method` register the
+handlers — previously they failed the router's `Future: Send` bound
+and fell through to `MethodNotFound`. See
+[tooling/lsp.md → Custom verum/* JSON-RPC methods — architecture](../../website/docs/tooling/lsp.md).
+
+### Removed
+
+- The no-op `execute_command` handler on the server (see *Fixed* —
+  there is no `execute_command_provider` to dispatch into).
+- "Known limitations" admonition in the extension README section
+  flagging four commands as `MethodNotFound`-returning; they work now.
+
 ## [0.2.0] - 2026-04-17
 
 ### Grammar audit — alignment with `grammar/verum.ebnf`

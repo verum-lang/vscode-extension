@@ -2,7 +2,7 @@
   "name": "verum-language",
   "displayName": "Verum Language Support",
   "description": "Language support for Verum with refinement type validation, CBGR profiling, and LSP integration",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "MaxSereda",
   "license": "MIT",
   "repository": {

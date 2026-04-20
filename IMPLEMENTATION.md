@@ -42,7 +42,7 @@ Total: ~5,500+ lines of production-quality code + documentation
 ### 1. Extension Activation (`src/extension.ts`)
 
 **Key Components:**
-- **LSP Client Setup**: Connects to `verum-lsp-server` via stdio
+- **LSP Client Setup**: Connects to `verum lsp` via stdio
 - **Status Bar Integration**: Shows server status with icons
 - **Command Registration**: 7 custom commands for Verum features
 - **Provider Registration**: Code actions, inlay hints, diagnostics
@@ -78,7 +78,7 @@ verum/inferRefinement(textDocument, symbol)
                      │ LSP Protocol
                      ▼
         ┌─────────────────────────┐
-        │  verum-lsp-server       │
+        │  verum lsp       │
         │  ├─ Type Checker        │
         │  ├─ Refinement Validator│
         │  └─ SMT Solver Pool     │
@@ -262,16 +262,20 @@ fn process(index: Int) {
 ```json
 {
   "verum.lsp.enable": true,
-  "verum.lsp.serverPath": "verum-lsp-server",
+  "verum.lsp.serverPath": "verum",       // path to the `verum` binary;
+                                         // LSP runs as `verum lsp --transport stdio`
   "verum.lsp.enableRefinementValidation": true,
-  "verum.lsp.validationMode": "quick",  // "quick" | "thorough" | "complete"
+  "verum.lsp.validationMode": "quick",   // "quick" | "thorough" | "complete"
   "verum.lsp.showCounterexamples": true,
+  "verum.lsp.maxCounterexampleTraces": 5,
   "verum.lsp.showInlayHints": true,
   "verum.lsp.diagnosticDelay": 200,
-  "verum.lsp.smtSolver": "z3",  // "z3" | "cvc5" | "auto"
+  "verum.lsp.smtSolver": "auto",         // "z3" | "cvc5" | "auto"
   "verum.lsp.smtTimeout": 50,
   "verum.lsp.cacheValidationResults": true,
-  "verum.lsp.trace.server": "off"  // "off" | "messages" | "verbose"
+  "verum.lsp.cacheTtlSeconds": 300,
+  "verum.lsp.cacheMaxEntries": 1000,
+  "verum.lsp.trace.server": "off"        // "off" | "messages" | "verbose"
 }
 ```
 
@@ -351,14 +355,14 @@ npm run publish   # Publish to VS Code Marketplace
 - `vsce`: ^2.15.0 (Packaging tool)
 
 ### External Requirements
-- **verum-lsp-server**: Must be in PATH
+- **`verum` CLI**: Must be in PATH (the LSP runs as `verum lsp --transport stdio`)
 - **SMT Solver**: Z3 or CVC5 (used by LSP server)
 
 ## Integration with Verum Toolchain
 
 ### LSP Server Communication
 ```
-Extension → LSP Client → stdio → verum-lsp-server
+Extension → LSP Client → stdio → verum lsp
                                        ↓
                                  Type Checker
                                        ↓
